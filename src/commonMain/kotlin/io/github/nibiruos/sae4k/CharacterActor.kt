@@ -2,33 +2,32 @@ package io.github.nibiruos.sae4k
 
 import com.soywiz.klock.milliseconds
 import com.soywiz.klock.seconds
+import com.soywiz.korge.component.docking.sortChildrenByY
+import com.soywiz.korge.tween.V2
 import com.soywiz.korge.tween.get
 import com.soywiz.korge.tween.tween
-import com.soywiz.korge.view.Sprite
 import com.soywiz.korge.view.SpriteAnimation
 import com.soywiz.korim.bitmap.Bitmap
 import com.soywiz.korim.format.readBitmap
 import com.soywiz.korio.file.std.resourcesVfs
+import com.soywiz.korma.geom.Angle
 import com.soywiz.korma.geom.Point
-import com.soywiz.korma.geom.Size
 
 class CharacterActor(
     private val standingAnimationRight: SpriteAnimation,
     private val walkingAnimationRight: SpriteAnimation,
     private val standingAnimationLeft: SpriteAnimation,
     private val walkingAnimationLeft: SpriteAnimation,
-    size: Size,
     initialPosition: Point,
     private val initialToRight: Boolean,
-    private val floor: Floor
-) : BaseActor(size, initialPosition, floor) {
-    override val sprite = Sprite()
-    private var zIndex: Double
-        get() = floor.getZIndex(sprite)
-        set(z) = floor.setZIndex(sprite, z)
-
+    floorAngle: Angle = Parameters.DEFAULT_FLOOR_ANGLE
+) : BaseActor(
+    initialPosition,
+    floorAngle
+) {
     override fun initialize() {
         super.initialize()
+
         sprite.playAnimation(
             if (initialToRight) {
                 standingAnimationRight
@@ -39,15 +38,10 @@ class CharacterActor(
     }
 
     override suspend fun moveTo(path: List<Point>) {
-        var pathLength = 0.0
-        var previous = feetPosition
-        path.forEach {
-            pathLength += previous.distanceTo(it)
-            previous = it
-        }
+        val pathLength = path.pathLength(feetPosition)
         val totalTime = pathLength / Parameters.WALK_SPEED
 
-        val (_, targetPosition, _) = floor.computePositionFromClick(this, path.last())
+        val targetPosition = path.last()
         val toLeft = targetPosition.x < sprite.x
 
         sprite.playAnimationLooped(
@@ -58,16 +52,18 @@ class CharacterActor(
             }, spriteDisplayTime = 200.milliseconds
         )
 
-        previous = feetPosition
+        var previous = feetPosition
         path.forEach {
             val duration = (totalTime * previous.distanceTo(it) / pathLength).seconds
-            val (scaleFactor, newPosition, z) = floor.computePositionFromClick(this, it)
+            val scaleFactor = scaleFactor(it)
 
             sprite.tween(
-                sprite::x[newPosition.x],
-                sprite::y[newPosition.y],
+                sprite::x[it.x],
+                sprite::y[it.y],
                 sprite::scale[scaleFactor],
-                this::zIndex[z],
+                v2 {
+                    sprite.parent!!.sortChildrenByY()
+                },
                 time = duration
             )
 
@@ -89,14 +85,14 @@ suspend fun simpleCharacter(
     initialPosition: Point,
     initialToRight: Boolean,
     frames: Int,
-    floor: Floor
+    floorAngle: Angle = Parameters.DEFAULT_FLOOR_ANGLE
 ) = simpleCharacter(
     resourcesVfs["${character}_standing.png"].readBitmap(),
     resourcesVfs["${character}_walking.png"].readBitmap(),
     initialPosition,
     initialToRight,
     frames,
-    floor
+    floorAngle
 )
 
 fun simpleCharacter(
@@ -105,7 +101,7 @@ fun simpleCharacter(
     initialPosition: Point,
     initialToRight: Boolean,
     frames: Int,
-    floor: Floor
+    floorAngle: Angle = Parameters.DEFAULT_FLOOR_ANGLE
 ): CharacterActor {
     val characterWidth = standingBitmap.width
     val characterHeight = standingBitmap.height
@@ -138,9 +134,32 @@ fun simpleCharacter(
             columns = frames,
             rows = 1
         ),
-        Size(characterWidth, characterHeight),
         initialPosition,
         initialToRight,
-        floor
+        floorAngle
     )
+}
+
+private object V2Dummy {
+    var dummy: Unit? = null
+}
+
+private fun v2(callback: () -> Unit) = V2(
+    V2Dummy::dummy,
+    null,
+    null,
+    { _, _, _ ->
+        callback()
+    },
+    false
+)
+
+private fun List<Point>.pathLength(startingPoint: Point): Double {
+    var pathLength = 0.0
+    var previous = startingPoint
+    forEach {
+        pathLength += previous.distanceTo(it)
+        previous = it
+    }
+    return pathLength
 }

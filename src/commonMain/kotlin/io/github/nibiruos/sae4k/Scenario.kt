@@ -1,17 +1,19 @@
 package io.github.nibiruos.sae4k
 
+import com.soywiz.korge.component.docking.sortChildrenByY
 import com.soywiz.korge.input.onClick
 import com.soywiz.korge.view.*
 import com.soywiz.korim.bitmap.Bitmap
 import com.soywiz.korim.format.readBitmap
 import com.soywiz.korio.file.std.resourcesVfs
+import com.soywiz.korma.geom.Anchor
 import com.soywiz.korma.geom.Point
 import kotlinx.coroutines.delay
 
 class Scenario(
     background: Bitmap,
     character: CharacterActor,
-    val floor: Floor
+    private val walkableArea: WalkableArea
 ) {
     companion object {
         private const val ACTOR_TEXT_SPACING = 10
@@ -23,6 +25,7 @@ class Scenario(
     private var currentActions: Actions? = null
 
     init {
+        container.sortChildrenByY()
         val backgroundImage = container.image(background)
         container.size(backgroundImage.width, backgroundImage.height)
         character.addToScenario()
@@ -36,7 +39,12 @@ class Scenario(
 
     suspend fun Actor.walkTo(destination: Point): Boolean {
         disposeTexts()
-        return floor.walkTo(this, destination)
+        val path = walkableArea.findPath(feetPosition, destination)
+        val pathFound = path.isNotEmpty()
+        if (pathFound) {
+            moveTo(path)
+        }
+        return pathFound
     }
 
     suspend fun Actor.showText(text: String) {
@@ -87,12 +95,12 @@ class Scenario(
     }
 
     fun Actor.addToScenario() {
-        container.addChild(sprite)
+        container.addToContainer()
         initialize()
     }
 
     fun draw(container: Container) {
-        floor.draw(container)
+        walkableArea.draw(container)
         standingAreas.forEach { it.draw(container) }
     }
 }
@@ -100,19 +108,19 @@ class Scenario(
 suspend fun buildSimpleScenario(
     background: String,
     character: CharacterActor,
-    floor: Floor
+    walkableArea: WalkableArea
 ): Scenario = Scenario(
     resourcesVfs["$background.png"].readBitmap(),
     character,
-    floor
+    walkableArea
 )
 
 suspend fun Container.simpleScenario(
     background: String,
     character: CharacterActor,
-    floor: Floor,
+    walkableArea: WalkableArea,
     setupCallback: suspend Scenario.() -> Unit = {}
-): Scenario = buildSimpleScenario(background, character, floor)
+): Scenario = buildSimpleScenario(background, character, walkableArea)
     .apply {
         addTo(this@simpleScenario)
         setupCallback()

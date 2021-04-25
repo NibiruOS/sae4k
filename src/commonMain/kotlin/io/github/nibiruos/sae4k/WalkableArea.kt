@@ -4,6 +4,7 @@ import com.soywiz.korge.view.Container
 import com.soywiz.korim.color.Colors
 import com.soywiz.korma.geom.Point
 
+//  TODO: Use VectorPath + Shape2d ?  https://korlibs.soywiz.com/korma/
 class WalkableArea(
     private val mainPolygon: Polygon,
     private val innerPolygons: List<Polygon>

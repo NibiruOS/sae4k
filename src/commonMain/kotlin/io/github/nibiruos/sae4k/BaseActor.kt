@@ -1,30 +1,50 @@
 package io.github.nibiruos.sae4k
 
+import com.soywiz.korge.view.Container
+import com.soywiz.korge.view.Sprite
+import com.soywiz.korge.view.anchor
 import com.soywiz.korge.view.xy
-import com.soywiz.korma.geom.Point
-import com.soywiz.korma.geom.Size
+import com.soywiz.korma.geom.*
 
 abstract class BaseActor(
-    override val size: Size,
     private val initialPosition: Point,
-    private val floor: Floor
+    floorAngle: Angle
 ) : Actor {
+    private companion object {
+        const val SCREEN_DISTANCE = 100.0
+    }
+
     override val feetPosition: Point
-        get() = Point(
-            sprite.x + sprite.scaledWidth / 2,
-            sprite.y + sprite.scaledHeight
-        )
+        get() = sprite.pos
 
     override val headPosition: Point
         get() = Point(
-            sprite.x + sprite.scaledWidth / 2,
-            sprite.y
+            sprite.x,
+            sprite.y - sprite.scaledHeight
         )
 
+    protected val sprite = Sprite()
+    private val floorTg = floorAngle.tangent
+
+    override fun Container.addToContainer() {
+        addChild(sprite)
+    }
+
+    override fun removeFromContainer() {
+        sprite.removeFromParent()
+    }
+
     override fun initialize() {
-        val (scaleFactor, newPosition, z) = floor.computePositionFromClick(this, initialPosition)
-        sprite.scale = scaleFactor
-        sprite.xy(newPosition.x, newPosition.y)
-        floor.setZIndex(sprite, z)
+        sprite.anchor(Anchor.BOTTOM_CENTER)
+        sprite.scale = scaleFactor(initialPosition)
+        sprite.xy(initialPosition.x, initialPosition.y)
+    }
+
+    protected fun scaleFactor(position: Point): Double {
+        val parent = sprite.parent
+        requireNotNull(parent) { "Actor sprite must be attached to parent before computing scale factor" }
+
+        val z = (parent.height - position.y) * floorTg
+        return SCREEN_DISTANCE / (SCREEN_DISTANCE + z)
     }
 }

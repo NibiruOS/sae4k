@@ -2,7 +2,6 @@ package sample
 
 import com.soywiz.korge.scene.Scene
 import com.soywiz.korge.view.Container
-import com.soywiz.korma.geom.Angle
 import com.soywiz.korma.geom.Point
 import io.github.nibiruos.sae4k.*
 import sample.Entrance.HOUSE
@@ -11,38 +10,36 @@ class HouseScene : Scene() {
     override suspend fun Container.sceneInit() {
         val state = injector.get<WorldState>()
 
-        val floor = floor(walkableArea({
-            0 _ 426
-            110 _ 385
-            390 _ 350
-            310 _ 270
-            400 _ 260
-            500 _ 330
-            650 _ 290
-            800 _ 290
-            800 _ 310
-            550 _ 426
-        }) {
-            innerPolygon {
-                600 _ 340
-                660 _ 360
-                550 _ 360
-            }
-        }, Angle.fromDegrees(30))
 
         val entrance = injector.getOrNull() ?: HOUSE
         val mainCharacter = simpleCharacter(
             "guybrush",
             entrance.position,
             entrance.toRight,
-            6,
-            floor
+            6
         )
 
         simpleScenario(
             "house",
             mainCharacter,
-            floor
+            walkableArea({
+                0 _ 426
+                110 _ 385
+                390 _ 350
+                310 _ 270
+                400 _ 260
+                500 _ 330
+                650 _ 290
+                800 _ 290
+                800 _ 310
+                550 _ 426
+            }) {
+                innerPolygon {
+                    600 _ 340
+                    660 _ 360
+                    550 _ 360
+                }
+            }
         ) {
             //draw(this@sceneInit)
             if (!state.inventory.pacman) {
@@ -53,7 +50,7 @@ class HouseScene : Scene() {
                             mainCharacter.showText("It looks like a good idea for\nan arcade game character")
                         }, action("Pickup") {
                             mainCharacter.walkTo(220 _ 400)
-                            sprite.removeFromParent()
+                            removeFromContainer()
                             state.inventory.pacman = true
                         })
                     }
